@@ -24,7 +24,7 @@ impl VotePreference {
 
 impl std::cmp::PartialOrd for VotePreference {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.preference.cmp(&other.preference))
+        Some(self.cmp(other))
     }
 }
 
@@ -32,7 +32,20 @@ impl std::cmp::Ord for VotePreference {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.preference
             .cmp(&other.preference)
+            .reverse()
             .then(self.candidate_id.cmp(&other.candidate_id))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::domain::vote::VotePreference;
+
+    #[test]
+    fn ensure_ordering_of_preferences_is_reverse_of_number_ordering() {
+        let a = VotePreference::new(1, 1);
+        let b = VotePreference::new(1, 2);
+        assert!(a > b);
     }
 }
 
@@ -70,10 +83,10 @@ impl Vote {
         self.preferences.push(v);
     }
 
-    pub(super) fn pop(&mut self) -> Result<Option<u32>, String> {
+    pub(super) fn pop(&mut self) -> Option<u32> {
         let c = self.preferences.pop();
 
-        Ok(c.map(|c| c.preference))
+        c.map(|c| c.preference)
     }
 
     pub(super) fn validate(&self) -> Result<(), String> {
@@ -96,5 +109,9 @@ impl Vote {
             }
         }
         Ok(())
+    }
+
+    pub(super) fn peek(&self) -> Option<u32> {
+        self.preferences.peek().map(|f| f.candidate_id())
     }
 }
