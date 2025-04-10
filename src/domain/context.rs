@@ -7,12 +7,6 @@ use super::{
     vote::{Vote, VotePreference},
 };
 
-pub enum Round {
-    WinnerFound(u32),
-    CandidateEliminated(u32),
-    ElectionConcluded,
-}
-
 pub struct ContextBuilder {
     candidates: HashMap<u32, Candidate>,
     candidate_names: Vec<String>,
@@ -38,26 +32,11 @@ impl ContextBuilder {
             e.insert(Candidate::new(self.candidate_names.len() - 1));
         }
 
-        self.votes
-            .entry(vote.user_id)
-            .and_modify(|v| {
-                if vote.vote_rank == 0 {
-                    return;
-                }
-
-                v.push(super::vote::VotePreference::new(
-                    vote.vote_option,
-                    vote.vote_rank,
-                ));
-            })
-            .or_insert({
-                let mut v = Vote::new();
-
-                if vote.vote_rank != 0 {
-                    v.push(VotePreference::new(vote.vote_option, vote.vote_rank));
-                }
-                v
-            });
+        let curr_vote = self.votes.entry(vote.user_id).or_insert(Vote::new());
+        if vote.vote_rank != 0 {
+            curr_vote.push(VotePreference::new(vote.vote_option, vote.vote_rank));
+        }
+        if vote.vote_option == 1810 {}
     }
 
     pub fn finish(self) -> Result<Context, String> {
@@ -70,9 +49,7 @@ impl ContextBuilder {
                 return Err(format!("Error found in vote {voter_id}: {e}"));
             }
         }
-        let quota = self.seats
-            / std::convert::TryInto::<u32>::try_into(self.votes.len())
-                .expect("We have more votes than u32::MAX. This program has reached its limit");
+        let quota = (self.votes.len() as f64 / self.seats as f64).ceil() as u32;
 
         Ok(Context {
             candidates: self.candidates,
@@ -92,4 +69,119 @@ pub struct Context {
     quota: u32,
 }
 
-impl Context {}
+pub enum RoundResult {
+    CandidateSucceeded(String, u32),
+    CandidateEliminated(String),
+}
+
+impl Iterator for Context {
+    type Item = RoundResult;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // No more seats available. Elections over
+        if self.seats == 0 {
+            return None;
+        }
+
+        let mut votes: HashMap<u32, Vec<u32>> = generate_vote_tally_map(&self.candidates);
+
+        // No eligible candidates. Election concluded.
+        if votes.is_empty() {
+            return None;
+        }
+
+        for (id, vote) in self.votes.iter_mut() {
+            while vote.peek().is_some() && !votes.contains_key(&vote.peek().unwrap()) {
+                vote.pop();
+            }
+            let vote_pref = vote.peek();
+
+            if vote_pref.is_none() {
+                continue;
+            }
+            votes.entry(vote_pref.unwrap()).and_modify(|v| v.push(*id));
+        }
+
+        let mut biggest_winner = None;
+        let mut biggest_winner_votes: u32 = 0;
+        let mut biggest_loser = None;
+        let mut biggest_loser_votes: u32 = u32::MAX;
+
+        for (candidate, votes) in &votes {
+            if votes.len() >= self.quota.try_into().unwrap()
+                && votes.len() > biggest_winner_votes.try_into().unwrap()
+            {
+                biggest_winner_votes = votes.len() as u32;
+                biggest_winner = Some(candidate);
+            }
+
+            if votes.len() < biggest_loser_votes.try_into().unwrap() {
+                biggest_loser_votes = votes.len().try_into().unwrap();
+                biggest_loser = Some(candidate);
+            }
+        }
+
+        dbg_print(&votes, self);
+
+        match (biggest_winner, biggest_loser) {
+            (Some(winner), _) => {
+                let votes = votes.get(winner).unwrap();
+
+                for vote in votes {
+                    let vote = self.votes.get_mut(vote).unwrap();
+                    vote.pop();
+                    vote.multiply_strength(1.0 - (self.quota / biggest_winner_votes) as f64);
+                }
+                let candidate = self.candidates.get_mut(winner).unwrap();
+                candidate.eliminate();
+                self.seats -= 1;
+                Some(RoundResult::CandidateSucceeded(
+                    self.candidate_names[candidate.interned_id()].clone(),
+                    biggest_winner_votes,
+                ))
+            }
+            (None, Some(loser)) => {
+                let candidate = self.candidates.get_mut(loser).unwrap();
+                candidate.eliminate();
+
+                let votes = votes.get(loser).unwrap();
+                for vote in votes {
+                    let vote = self.votes.get_mut(vote).unwrap();
+                    vote.pop();
+                }
+
+                Some(RoundResult::CandidateEliminated(
+                    self.candidate_names[candidate.interned_id()].clone(),
+                ))
+            }
+            (None, None) => None,
+        }
+    }
+}
+
+fn dbg_print(votes: &HashMap<u32, Vec<u32>>, ctx: &Context) {
+    println!("Quota: {}", ctx.quota);
+    println!("Seats: {}", ctx.seats);
+    for (key, value) in votes {
+        let name = ctx.candidates.get(key).unwrap();
+        println!(
+            "{} -> {}",
+            ctx.candidate_names[name.interned_id()],
+            value.len()
+        );
+    }
+}
+
+fn generate_vote_tally_map(candidates: &HashMap<u32, Candidate>) -> HashMap<u32, Vec<u32>> {
+    let mut map = HashMap::new();
+
+    for (key, value) in candidates {
+        if value.is_eliminated() {
+            continue;
+        }
+
+        map.insert(*key, Vec::new());
+    }
+
+    map
+}

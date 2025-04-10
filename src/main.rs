@@ -1,4 +1,4 @@
-use voteinator::serialize::create_context;
+use voteinator::{domain::context::RoundResult, serialize::create_context};
 
 fn main() {
     let args = std::env::args();
@@ -10,4 +10,19 @@ fn main() {
     }
 
     let ctx = create_context(args.next().unwrap(), args.next().unwrap().parse().unwrap());
+
+    for (i, res) in ctx.enumerate() {
+        let i = i + 1;
+        match res {
+            RoundResult::CandidateSucceeded(winner, votes) => {
+                println!("Round {i} Candidate {winner} has won a seat with {votes} votes")
+            }
+            RoundResult::CandidateEliminated(loser) => {
+                println!("Round {i} Candidate {loser} is eliminated");
+            }
+        }
+        let mut _thingy = String::new();
+        std::io::stdin().read_line(&mut _thingy).unwrap();
+    }
+    println!("Election concluded");
 }

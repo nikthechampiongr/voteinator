@@ -1,6 +1,6 @@
 use crate::domain::context::{Context, ContextBuilder};
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, Debug)]
 pub struct VoteEntry {
     #[serde(alias = "vote_time", skip)]
     _vote_time: String,
