@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::serialize::VoteEntry;
+use crate::deserialize::{Restriction, VoteEntry};
 
 use super::{
     Candidate,
@@ -11,6 +11,7 @@ pub struct ContextBuilder {
     candidates: HashMap<usize, Candidate>,
     candidate_names: Vec<String>,
     votes: HashMap<usize, Vote>,
+    restrictions: Vec<Restriction>,
     seats: usize,
 }
 
@@ -20,6 +21,7 @@ impl ContextBuilder {
             candidates: HashMap::new(),
             candidate_names: Vec::new(),
             votes: HashMap::new(),
+            restrictions: Vec::new(),
             seats,
         }
     }
@@ -39,7 +41,11 @@ impl ContextBuilder {
         if vote.vote_option == 1810 {}
     }
 
-    pub fn finish(self) -> Result<Context, String> {
+    pub fn insert_restriction(&mut self, restriction: Restriction) {
+        self.restrictions.push(restriction);
+    }
+
+    pub fn finish(mut self) -> Result<Context, String> {
         if self.seats < 2 {
             return Err("Available seats are less than 2".to_string());
         }
@@ -52,12 +58,26 @@ impl ContextBuilder {
 
         let quota = (self.votes.len() as f64 / self.seats as f64).ceil() as usize;
 
+        for i in 0..self.restrictions.len() {
+            for j in 0..self.restrictions[i].members().len() {
+                let member = self.restrictions[i].members()[j];
+                let member = self.candidates.get_mut(&member).ok_or(format!(
+                    "{} member {} is not a candidate",
+                    self.restrictions[i].group_name(),
+                    &member
+                ))?;
+                member.insert_group(i)?;
+            }
+        }
+
         Ok(Context {
             candidates: self.candidates,
             candidate_names: self.candidate_names,
             votes: self.votes,
             seats_remaining: self.seats,
             quota,
+            restrictions: self.restrictions,
+            active_group_elimination: None,
         })
     }
 }
@@ -68,6 +88,8 @@ pub struct Context {
     votes: HashMap<usize, Vote>,
     seats_remaining: usize,
     quota: usize,
+    restrictions: Vec<Restriction>,
+    active_group_elimination: Option<usize>,
 }
 
 impl Context {
@@ -146,6 +168,7 @@ impl WinnerLoserStruct {
 pub enum RoundResult {
     CandidateSucceeded(String, usize, HashMap<String, usize>),
     CandidateEliminated(String, HashMap<String, usize>),
+    CandidateEliminatedByRestriction(String, String),
 }
 
 impl Iterator for Context {
@@ -155,6 +178,13 @@ impl Iterator for Context {
         // No more seats available. Elections over
         if self.seats_remaining == 0 {
             return None;
+        }
+
+        if let Some((candidate_id, group_id)) = handle_restrictions(self) {
+            return Some(RoundResult::CandidateEliminatedByRestriction(
+                self.get_name(candidate_id).unwrap(),
+                self.restrictions[group_id].group_name().to_string(),
+            ));
         }
 
         let votes = self.calculate_votes();
@@ -180,9 +210,17 @@ impl Iterator for Context {
                     vote.pop();
                     vote.multiply_strength(1.0 - (self.quota / biggest_winner_votes) as f64);
                 }
+
                 let candidate = self.candidates.get_mut(&winner).unwrap();
                 candidate.eliminate();
                 self.seats_remaining -= 1;
+
+                self.active_group_elimination = candidate.group();
+
+                if let Some(group_id) = candidate.group() {
+                    self.restrictions[group_id].decrement();
+                }
+
                 Some(RoundResult::CandidateSucceeded(
                     self.candidate_names[candidate.interned_id()].clone(),
                     biggest_winner_votes,
@@ -215,6 +253,36 @@ impl Iterator for Context {
             (None, None) => None,
         }
     }
+}
+
+fn handle_restrictions(ctx: &mut Context) -> Option<(usize, usize)> {
+    if let Some(group_id) = ctx.active_group_elimination {
+        let group = ctx.restrictions.get_mut(group_id).unwrap();
+
+        if group.limit() != 0 {
+            return None;
+        }
+
+        for candidate_id in ctx.restrictions[group_id].members() {
+            let member = ctx.candidates.get_mut(candidate_id).unwrap();
+
+            if member.is_eliminated() {
+                continue;
+            }
+            member.eliminate();
+
+            for vote in ctx.votes.values_mut() {
+                if let Some(id) = vote.peek() {
+                    if id == *candidate_id {
+                        vote.pop();
+                    }
+                }
+            }
+
+            return Some((*candidate_id, group_id));
+        }
+    }
+    None
 }
 
 fn generate_vote_tally_map(candidates: &HashMap<usize, Candidate>) -> HashMap<usize, Vec<usize>> {

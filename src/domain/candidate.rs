@@ -1,6 +1,7 @@
 pub struct Candidate {
     interned_index: usize,
     eliminated: bool,
+    group: Option<usize>,
 }
 
 impl Candidate {
@@ -8,6 +9,7 @@ impl Candidate {
         Candidate {
             interned_index,
             eliminated: false,
+            group: None,
         }
     }
 
@@ -21,5 +23,17 @@ impl Candidate {
 
     pub fn is_eliminated(&self) -> bool {
         self.eliminated
+    }
+
+    pub fn insert_group(&mut self, group_id: usize) -> Result<(), &'static str> {
+        if self.group.is_some() {
+            return Err("Group already assigned");
+        }
+        self.group = Some(group_id);
+        Ok(())
+    }
+
+    pub fn group(&self) -> Option<usize> {
+        self.group
     }
 }
