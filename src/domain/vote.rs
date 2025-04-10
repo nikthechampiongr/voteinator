@@ -2,23 +2,23 @@ use std::collections::{BinaryHeap, HashSet};
 
 #[derive(Debug)]
 pub struct VotePreference {
-    candidate_id: u32,
-    preference: u32,
+    candidate_id: usize,
+    preference: usize,
 }
 
 impl VotePreference {
-    pub fn new(candidate_id: u32, preference: u32) -> Self {
+    pub fn new(candidate_id: usize, preference: usize) -> Self {
         VotePreference {
             candidate_id,
             preference,
         }
     }
-    pub fn candidate_id(&self) -> u32 {
+    pub fn candidate_id(&self) -> usize {
         self.candidate_id
     }
 
     #[allow(dead_code)]
-    pub fn preference(&self) -> u32 {
+    pub fn preference(&self) -> usize {
         self.preference
     }
 }
@@ -85,7 +85,7 @@ impl Vote {
         self.preferences.push(v);
     }
 
-    pub(super) fn pop(&mut self) -> Option<u32> {
+    pub(super) fn pop(&mut self) -> Option<usize> {
         let c = self.preferences.pop();
 
         c.map(|c| c.preference)
@@ -113,7 +113,7 @@ impl Vote {
         Ok(())
     }
 
-    pub(super) fn peek(&self) -> Option<u32> {
+    pub(super) fn peek(&self) -> Option<usize> {
         self.preferences.peek().map(|f| f.candidate_id())
     }
 }

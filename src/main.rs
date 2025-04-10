@@ -34,7 +34,7 @@ fn main() {
     println!("Election concluded");
 }
 
-fn tally_print(votes: &HashMap<String, usize>, seats: u32, quota: u32) {
+fn tally_print(votes: &HashMap<String, usize>, seats: usize, quota: usize) {
     println!("Quota: {quota}");
     println!("Seats remaining: {seats}");
     for (key, value) in votes {

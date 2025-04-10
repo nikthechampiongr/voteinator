@@ -4,9 +4,9 @@ use crate::domain::context::{Context, ContextBuilder};
 pub struct VoteEntry {
     #[serde(alias = "vote_time", skip)]
     _vote_time: String,
-    pub vote_option: u32,
-    pub vote_rank: u32,
-    pub user_id: u32,
+    pub vote_option: usize,
+    pub vote_rank: usize,
+    pub user_id: usize,
     #[serde(alias = "username", skip)]
     _username: String,
     #[serde(alias = "name", skip)]

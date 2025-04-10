@@ -8,14 +8,14 @@ use super::{
 };
 
 pub struct ContextBuilder {
-    candidates: HashMap<u32, Candidate>,
+    candidates: HashMap<usize, Candidate>,
     candidate_names: Vec<String>,
-    votes: HashMap<u32, Vote>,
-    seats: u32,
+    votes: HashMap<usize, Vote>,
+    seats: usize,
 }
 
 impl ContextBuilder {
-    pub fn new(seats: u32) -> Self {
+    pub fn new(seats: usize) -> Self {
         Self {
             candidates: HashMap::new(),
             candidate_names: Vec::new(),
@@ -49,7 +49,8 @@ impl ContextBuilder {
                 return Err(format!("Error found in vote {voter_id}: {e}"));
             }
         }
-        let quota = (self.votes.len() as f64 / self.seats as f64).ceil() as u32;
+
+        let quota = (self.votes.len() as f64 / self.seats as f64).ceil() as usize;
 
         Ok(Context {
             candidates: self.candidates,
@@ -62,30 +63,30 @@ impl ContextBuilder {
 }
 
 pub struct Context {
-    candidates: HashMap<u32, Candidate>,
+    candidates: HashMap<usize, Candidate>,
     candidate_names: Vec<String>,
-    votes: HashMap<u32, Vote>,
-    seats_remaining: u32,
-    quota: u32,
+    votes: HashMap<usize, Vote>,
+    seats_remaining: usize,
+    quota: usize,
 }
 
 impl Context {
-    pub fn quota(&self) -> u32 {
+    pub fn quota(&self) -> usize {
         self.quota
     }
 
-    pub fn seats_remaining(&self) -> u32 {
+    pub fn seats_remaining(&self) -> usize {
         self.seats_remaining
     }
 
-    pub fn get_name(&self, id: u32) -> Option<String> {
+    pub fn get_name(&self, id: usize) -> Option<String> {
         self.candidates
             .get(&id)
             .map(|id| self.candidate_names[id.interned_id()].clone())
     }
 
-    fn calculate_votes(&mut self) -> HashMap<u32, Vec<u32>> {
-        let mut votes: HashMap<u32, Vec<u32>> = generate_vote_tally_map(&self.candidates);
+    fn calculate_votes(&mut self) -> HashMap<usize, Vec<usize>> {
+        let mut votes: HashMap<usize, Vec<usize>> = generate_vote_tally_map(&self.candidates);
 
         if votes.is_empty() {
             return votes;
@@ -107,30 +108,28 @@ impl Context {
 }
 
 struct WinnerLoserStruct {
-    biggest_winner: Option<u32>,
-    biggest_winner_votes: u32,
-    biggest_loser: Option<u32>,
+    biggest_winner: Option<usize>,
+    biggest_winner_votes: usize,
+    biggest_loser: Option<usize>,
     #[allow(dead_code)]
-    biggest_loser_votes: u32,
+    biggest_loser_votes: usize,
 }
 
 impl WinnerLoserStruct {
-    fn calculate(votes: &HashMap<u32, Vec<u32>>, quota: u32) -> Self {
+    fn calculate(votes: &HashMap<usize, Vec<usize>>, quota: usize) -> Self {
         let mut biggest_winner = None;
-        let mut biggest_winner_votes: u32 = 0;
+        let mut biggest_winner_votes: usize = 0;
         let mut biggest_loser = None;
-        let mut biggest_loser_votes: u32 = u32::MAX;
+        let mut biggest_loser_votes: usize = usize::MAX;
 
         for (candidate, votes) in votes {
-            if votes.len() >= quota as usize
-                && votes.len() > biggest_winner_votes.try_into().unwrap()
-            {
-                biggest_winner_votes = votes.len() as u32;
+            if votes.len() >= quota && votes.len() > biggest_winner_votes {
+                biggest_winner_votes = votes.len();
                 biggest_winner = Some(*candidate);
             }
 
-            if votes.len() < biggest_loser_votes.try_into().unwrap() {
-                biggest_loser_votes = votes.len().try_into().unwrap();
+            if votes.len() < biggest_loser_votes {
+                biggest_loser_votes = votes.len();
                 biggest_loser = Some(*candidate);
             }
         }
@@ -145,7 +144,7 @@ impl WinnerLoserStruct {
 }
 
 pub enum RoundResult {
-    CandidateSucceeded(String, u32, HashMap<String, usize>),
+    CandidateSucceeded(String, usize, HashMap<String, usize>),
     CandidateEliminated(String, HashMap<String, usize>),
 }
 
@@ -218,7 +217,7 @@ impl Iterator for Context {
     }
 }
 
-fn generate_vote_tally_map(candidates: &HashMap<u32, Candidate>) -> HashMap<u32, Vec<u32>> {
+fn generate_vote_tally_map(candidates: &HashMap<usize, Candidate>) -> HashMap<usize, Vec<usize>> {
     let mut map = HashMap::new();
 
     for (key, value) in candidates {
