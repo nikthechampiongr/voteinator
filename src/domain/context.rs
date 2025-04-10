@@ -55,7 +55,7 @@ impl ContextBuilder {
             candidates: self.candidates,
             candidate_names: self.candidate_names,
             votes: self.votes,
-            seats: self.seats,
+            seats_remaining: self.seats,
             quota,
         })
     }
@@ -65,13 +65,31 @@ pub struct Context {
     candidates: HashMap<u32, Candidate>,
     candidate_names: Vec<String>,
     votes: HashMap<u32, Vote>,
-    seats: u32,
+    seats_remaining: u32,
     quota: u32,
 }
 
+impl Context {
+    pub fn quota(&self) -> u32 {
+        self.quota
+    }
+
+    pub fn seats_remaining(&self) -> u32 {
+        self.seats_remaining
+    }
+
+    pub fn get_name(&self, id: u32) -> Option<String> {
+        if let Some(id) = self.candidates.get(&id) {
+            Some(self.candidate_names[id.interned_id()].clone())
+        } else {
+            None
+        }
+    }
+}
+
 pub enum RoundResult {
-    CandidateSucceeded(String, u32),
-    CandidateEliminated(String),
+    CandidateSucceeded(String, u32, HashMap<String, usize>),
+    CandidateEliminated(String, HashMap<String, usize>),
 }
 
 impl Iterator for Context {
@@ -79,7 +97,7 @@ impl Iterator for Context {
 
     fn next(&mut self) -> Option<Self::Item> {
         // No more seats available. Elections over
-        if self.seats == 0 {
+        if self.seats_remaining == 0 {
             return None;
         }
 
@@ -121,54 +139,49 @@ impl Iterator for Context {
             }
         }
 
-        dbg_print(&votes, self);
-
         match (biggest_winner, biggest_loser) {
             (Some(winner), _) => {
-                let votes = votes.get(winner).unwrap();
+                let curr_votes = votes.get(winner).unwrap();
 
-                for vote in votes {
+                for vote in curr_votes {
                     let vote = self.votes.get_mut(vote).unwrap();
                     vote.pop();
                     vote.multiply_strength(1.0 - (self.quota / biggest_winner_votes) as f64);
                 }
                 let candidate = self.candidates.get_mut(winner).unwrap();
                 candidate.eliminate();
-                self.seats -= 1;
+                self.seats_remaining -= 1;
                 Some(RoundResult::CandidateSucceeded(
                     self.candidate_names[candidate.interned_id()].clone(),
                     biggest_winner_votes,
+                    HashMap::from_iter(
+                        votes
+                            .iter()
+                            .map(|(k, v)| (self.get_name(*k).unwrap(), v.len())),
+                    ),
                 ))
             }
             (None, Some(loser)) => {
                 let candidate = self.candidates.get_mut(loser).unwrap();
                 candidate.eliminate();
 
-                let votes = votes.get(loser).unwrap();
-                for vote in votes {
+                let curr_votes = votes.get(loser).unwrap();
+                for vote in curr_votes {
                     let vote = self.votes.get_mut(vote).unwrap();
                     vote.pop();
                 }
 
                 Some(RoundResult::CandidateEliminated(
                     self.candidate_names[candidate.interned_id()].clone(),
+                    HashMap::from_iter(
+                        votes
+                            .iter()
+                            .map(|(k, v)| (self.get_name(*k).unwrap(), v.len())),
+                    ),
                 ))
             }
             (None, None) => None,
         }
-    }
-}
-
-fn dbg_print(votes: &HashMap<u32, Vec<u32>>, ctx: &Context) {
-    println!("Quota: {}", ctx.quota);
-    println!("Seats: {}", ctx.seats);
-    for (key, value) in votes {
-        let name = ctx.candidates.get(key).unwrap();
-        println!(
-            "{} -> {}",
-            ctx.candidate_names[name.interned_id()],
-            value.len()
-        );
     }
 }
 
