@@ -1,9 +1,6 @@
 use std::collections::HashMap;
 
-use voteinator::{
-    domain::context::{Context, RoundResult},
-    serialize::create_context,
-};
+use voteinator::{domain::context::RoundResult, serialize::create_context};
 
 fn main() {
     let args = std::env::args();
