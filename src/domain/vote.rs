@@ -17,6 +17,7 @@ impl VotePreference {
         self.candidate_id
     }
 
+    #[allow(dead_code)]
     pub fn preference(&self) -> u32 {
         self.preference
     }
@@ -71,6 +72,7 @@ impl Vote {
         }
     }
 
+    #[allow(dead_code)]
     pub(super) fn strength(&self) -> f64 {
         self.strength
     }

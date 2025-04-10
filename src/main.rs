@@ -20,12 +20,12 @@ fn main() {
         match res {
             RoundResult::CandidateSucceeded(winner, votes, total_votes) => {
                 println!("Round {i} Candidate {winner} has won a seat with {votes} votes");
-                dbg_print(&total_votes, seats, quota);
+                tally_print(&total_votes, seats, quota);
                 seats -= 1;
             }
             RoundResult::CandidateEliminated(loser, total_votes) => {
                 println!("Round {i} Candidate {loser} is eliminated");
-                dbg_print(&total_votes, seats, quota);
+                tally_print(&total_votes, seats, quota);
             }
         }
         let mut _thingy = String::new();
@@ -34,7 +34,7 @@ fn main() {
     println!("Election concluded");
 }
 
-fn dbg_print(votes: &HashMap<String, usize>, seats: u32, quota: u32) {
+fn tally_print(votes: &HashMap<String, usize>, seats: u32, quota: u32) {
     println!("Quota: {quota}");
     println!("Seats remaining: {seats}");
     for (key, value) in votes {

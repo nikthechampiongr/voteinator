@@ -110,6 +110,7 @@ struct WinnerLoserStruct {
     biggest_winner: Option<u32>,
     biggest_winner_votes: u32,
     biggest_loser: Option<u32>,
+    #[allow(dead_code)]
     biggest_loser_votes: u32,
 }
 
