@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
-use crate::deserialize::{Restriction, VoteEntry};
+use crate::deserialize::VoteEntry;
 
 use super::{
-    Candidate,
+    Candidate, Restriction,
     vote::{Vote, VotePreference},
 };
 
