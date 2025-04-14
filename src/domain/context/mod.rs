@@ -30,27 +30,6 @@ impl Context {
             .get(&id)
             .map(|id| self.candidate_names[id.interned_id()].clone())
     }
-
-    fn calculate_votes(&mut self) -> HashMap<usize, Vec<usize>> {
-        let mut votes: HashMap<usize, Vec<usize>> = self.generate_vote_tally_map();
-
-        if votes.is_empty() {
-            return votes;
-        }
-
-        for (id, vote) in self.votes.iter_mut() {
-            while vote.peek().is_some() && !votes.contains_key(&vote.peek().unwrap()) {
-                vote.pop();
-            }
-            let vote_pref = vote.peek();
-
-            if vote_pref.is_none() {
-                continue;
-            }
-            votes.entry(vote_pref.unwrap()).and_modify(|v| v.push(*id));
-        }
-        votes
-    }
 }
 
 struct WinnerLoserStruct {
