@@ -46,6 +46,8 @@ fn main() {
 fn tally_print(votes: &HashMap<String, usize>, seats: usize, quota: usize) {
     println!("Quota: {quota}");
     println!("Seats remaining: {seats}");
+    let mut votes: Vec<(&String, &usize)> = votes.into_iter().collect();
+    votes.sort_by(|a, b| a.0.cmp(b.0));
     for (key, value) in votes {
         println!("{} -> {}", key, value);
     }
