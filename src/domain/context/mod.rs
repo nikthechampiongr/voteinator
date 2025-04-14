@@ -41,20 +41,19 @@ struct WinnerLoserStruct {
 }
 
 impl WinnerLoserStruct {
-    fn calculate(ctx: &Context, votes: &HashMap<usize, Vec<usize>>, quota: usize) -> Self {
+    fn calculate(ctx: &Context, votes: &HashMap<usize, Vec<usize>>) -> Self {
         let mut biggest_winner = None;
         let mut biggest_winner_votes: usize = 0;
         let mut biggest_loser = None;
         let mut biggest_loser_votes: usize = usize::MAX;
 
         for (candidate, votes) in votes {
-            if ctx.sum_votes(votes) >= quota && ctx.sum_votes(votes) > biggest_winner_votes {
-                biggest_winner_votes = votes.len();
+            let votes = ctx.sum_votes(votes);
+            if votes >= ctx.quota && votes > biggest_winner_votes {
+                biggest_winner_votes = votes;
                 biggest_winner = Some(*candidate);
-            }
-
-            if votes.len() < biggest_loser_votes {
-                biggest_loser_votes = votes.len();
+            } else if votes < biggest_loser_votes {
+                biggest_loser_votes = votes;
                 biggest_loser = Some(*candidate);
             }
         }
@@ -102,10 +101,11 @@ impl Iterator for Context {
             biggest_loser,
             biggest_winner_votes,
             biggest_loser_votes: _,
-        } = WinnerLoserStruct::calculate(self, &votes, self.quota());
+        } = WinnerLoserStruct::calculate(self, &votes);
 
         match (biggest_winner, biggest_loser) {
             (Some(winner), _) => {
+                let vote_tally = self.create_vote_map(&votes);
                 let curr_votes = votes.get(&winner).unwrap();
 
                 for vote in curr_votes {
@@ -127,14 +127,11 @@ impl Iterator for Context {
                 Some(RoundResult::CandidateSucceeded(
                     self.candidate_names[candidate.interned_id()].clone(),
                     biggest_winner_votes,
-                    HashMap::from_iter(
-                        votes
-                            .iter()
-                            .map(|(k, v)| (self.get_name(*k).unwrap(), self.sum_votes(v))),
-                    ),
+                    vote_tally,
                 ))
             }
             (None, Some(loser)) => {
+                let vote_tally = self.create_vote_map(&votes);
                 let candidate = self.candidates.get_mut(&loser).unwrap();
                 candidate.eliminate();
 
@@ -146,11 +143,7 @@ impl Iterator for Context {
 
                 Some(RoundResult::CandidateEliminated(
                     self.candidate_names[candidate.interned_id()].clone(),
-                    HashMap::from_iter(
-                        votes
-                            .iter()
-                            .map(|(k, v)| (self.get_name(*k).unwrap(), self.sum_votes(v))),
-                    ),
+                    vote_tally,
                 ))
             }
             (None, None) => None,
