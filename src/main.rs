@@ -23,9 +23,9 @@ fn main() {
         let i = i + 1;
         match res {
             RoundResult::CandidateSucceeded(winner, votes, total_votes) => {
+                seats -= 1;
                 println!("Round {i} Candidate {winner} has won a seat with {votes} votes");
                 tally_print(&total_votes, seats, quota);
-                seats -= 1;
             }
             RoundResult::CandidateEliminated(loser, total_votes) => {
                 println!("Round {i} Candidate {loser} is eliminated");
@@ -46,7 +46,7 @@ fn main() {
 fn tally_print(votes: &HashMap<String, usize>, seats: usize, quota: usize) {
     println!("Quota: {quota}");
     println!("Seats remaining: {seats}");
-    let mut votes: Vec<(&String, &usize)> = votes.into_iter().collect();
+    let mut votes: Vec<(&String, &usize)> = votes.iter().collect();
     votes.sort_by(|a, b| a.0.cmp(b.0));
     for (key, value) in votes {
         println!("{} -> {}", key, value);
