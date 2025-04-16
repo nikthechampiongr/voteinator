@@ -41,7 +41,10 @@ struct WinnerLoserStruct {
 }
 
 impl WinnerLoserStruct {
-    fn calculate(ctx: &Context, votes: &HashMap<usize, Vec<usize>>) -> Self {
+    fn calculate_and_set_voting_power(
+        ctx: &mut Context,
+        votes: &HashMap<usize, Vec<usize>>,
+    ) -> Self {
         let mut biggest_winner = None;
         let mut biggest_winner_votes: usize = 0;
         let mut biggest_loser = None;
@@ -49,10 +52,29 @@ impl WinnerLoserStruct {
 
         for (candidate, votes) in votes {
             let votes = ctx.sum_votes(votes);
-            if votes >= ctx.quota && votes > biggest_winner_votes {
+            ctx.candidates
+                .get_mut(&candidate)
+                .unwrap()
+                .add_prev_voting_power(votes);
+            if votes >= ctx.quota && votes >= biggest_winner_votes {
+                if votes == biggest_winner_votes
+                    && ctx.candidates.get(candidate).unwrap()
+                        <= ctx.candidates.get(&biggest_winner.unwrap()).unwrap()
+                {
+                    continue;
+                }
+
                 biggest_winner_votes = votes;
                 biggest_winner = Some(*candidate);
-            } else if votes < biggest_loser_votes {
+            } else if votes <= biggest_loser_votes {
+                if let Some(loser) = biggest_loser {
+                    if votes == biggest_loser_votes
+                        && ctx.candidates.get(candidate).unwrap()
+                            >= ctx.candidates.get(&loser).unwrap()
+                    {
+                        continue;
+                    }
+                }
                 biggest_loser_votes = votes;
                 biggest_loser = Some(*candidate);
             }
@@ -101,7 +123,7 @@ impl Iterator for Context {
             biggest_loser,
             biggest_winner_votes,
             biggest_loser_votes: _,
-        } = WinnerLoserStruct::calculate(self, &votes);
+        } = WinnerLoserStruct::calculate_and_set_voting_power(self, &votes);
 
         match (biggest_winner, biggest_loser) {
             (Some(winner), _) => {
