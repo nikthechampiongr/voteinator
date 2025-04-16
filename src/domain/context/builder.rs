@@ -59,7 +59,7 @@ impl ContextBuilder {
             }
         }
 
-        let quota = (self.votes.len() as f64 / self.seats as f64).ceil() as usize;
+        let quota = (self.votes.len() as f64 / self.seats as f64) as usize;
 
         for i in 0..self.restrictions.len() {
             for j in 0..self.restrictions[i].members().len() {
